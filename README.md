@@ -1,46 +1,272 @@
-# Getting Started with Create React App
+# More Advance React Hooks
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+- [useRef](#useref-hook)
+  - [Accessing DOM Element](#accessing-dom-element)
+  - [Does not cause Re Render](#does-not-cause-re-render)
+- [useMemo](#usememo-hook)
+  - [Performance without useMemo](#performance-without-using-usememo)
+  - [Performance with useMemo](#performance-using-usememo-hook)
+- [useCallback](#usecallback)
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+Reference: <a href="https://react-typescript-cheatsheet.netlify.app/">React TypeScript Cheatsheet</a>
 
-### `npm start`
+## useRef Hook
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- It allows you to persist value between renders.
+- It can be used to store a mutable value that does not cause a re-render when updated.
+- It can be used to access a DOM element directly.
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+### Accessing DOM Element
 
-### `npm test`
+- In general, we want to let React handle all DOM manipulation.
+- But there are some instances where `useRef` can be used without causing issues.
+- In React, we can add a `ref` attribute to an element to access it directly in the DOM.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```tsx
+import React, { FormEvent, useRef } from "react";
 
-### `npm run build`
+const UseRefExample1 = () => {
+  const inpRef = useRef<HTMLInputElement>(null);
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+  const paraRef = useRef<HTMLParagraphElement>(null);
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+  function submitHandler(e: FormEvent) {
+    e.preventDefault();
+    console.log(inpRef.current!.value); //
+    inpRef.current!.value = "Hello";
+    inpRef.current!.style.backgroundColor = "red";
+    paraRef.current!.style.color = "green";
+  }
+  return (
+    <div>
+      <h3>UseRef Example</h3>
+      <form onSubmit={submitHandler}>
+        <input
+          type="text"
+          ref={inpRef}
+          className="form-control mb-3"
+          required
+        />
+        <button className="btn btn-primary" type="submit">
+          Submit
+        </button>
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+        <p
+          onClick={() => {
+            inpRef.current?.focus();
+          }}
+          ref={paraRef}
+        >
+          useRef is used to persists value between renders
+        </p>
+      </form>
+    </div>
+  );
+};
 
-### `npm run eject`
+export default UseRefExample1;
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+### Does not cause Re Render
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+If we tried to count how many times our application renders using the `useState` Hook, we would be caught in an infinite loop since this Hook itself causes a re-render.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+To avoid this we can use `useRef ` Hook.
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+```tsx
+import { FormEvent, useEffect, useRef, useState } from "react";
 
-## Learn More
+const UseRefExample = () => {
+  const [inputValue, setInputValue] = useState("");
+  const count = useRef<number>(0);
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+  useEffect(() => {
+    count.current += 1;
+  });
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+  const changeHandler = (e: FormEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    setInputValue(e.currentTarget.value);
+    // console.log(inputValue);
+  };
+
+  return (
+    <div>
+      <h3 className="mb-3">UseRef Example</h3>
+      <form>
+        <input
+          type="text"
+          value={inputValue}
+          onChange={changeHandler}
+          className="form-control"
+        />
+        <h3>Render Count : {count.current}</h3>
+      </form>
+    </div>
+  );
+};
+
+export default UseRefExample;
+```
+
+`useRef()` only returns one item. It returns an Object called current.
+
+---
+
+## useMemo Hook
+
+- It returns a memomized value
+- Think of memomization as caching a value so that it does not need to be recalculated.
+- useMemo Hook only runs when one of its dependencies update.
+- This can improve performance.
+
+`useMemo` hook can be used to keep expensive, resource intenisve functions from needlessly running.
+
+### Performance without using useMemo
+
+- In Below Example, We have sqrt function as an expensive function by looping 10000 times a number before returning sqrt.
+- While changing the input , you will notice the a delay in rendering the square root
+
+```tsx
+import React, { useEffect, useRef, useState } from "react";
+
+function useMemoExample() {
+  const [number, setNumber] = useState<number>(1);
+  const [inc, setInc] = useState(0);
+  const renders = useRef(1);
+
+  const sqrt = getSqrt(number);
+
+  useEffect(() => {
+    renders.current = renders.current + 1;
+  });
+
+  function onClick() {
+    setInc((prevState: number) => {
+      console.log(prevState + 1);
+      return prevState + 1;
+    });
+  }
+
+  return (
+    <div>
+      <h3>UseMemo Example</h3>
+      <input
+        type="number"
+        value={number}
+        onChange={(e) => setNumber(e.target.valueAsNumber)}
+        className="form-control w-25"
+      />
+
+      <h3>
+        The Square root of {number} is {sqrt}
+      </h3>
+
+      <button type="button" onClick={onClick} className="btn btn-primary">
+        Re Render
+      </button>
+      <h4>Renders: {renders.current}</h4>
+    </div>
+  );
+}
+
+function getSqrt(num: number) {
+  for (let i = 0; i < 10000; i++) {
+    console.log(i);
+  }
+  console.log("Expensive Function Called");
+  return Math.sqrt(num);
+}
+
+export default useMemoExample;
+```
+
+### Performance using useMemo Hook
+
+To fix the performance issue,we can use the `useMemo` hook to memoize the `getSqrt` function.This will cause the function to only run when needed.
+
+- Wrap the expensive function i.e`getSqrt` with `useMemo`.
+- `useMemo` accepts the second parameter to declare dependencies.The expensive function only run when its dependiencies have changed.
+
+```tsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
+function useMemoExample() {
+  const [number, setNumber] = useState<number>(1);
+  const [inc, setInc] = useState(0);
+  const renders = useRef(1);
+
+  const sqrt = useMemo(() => getSqrt(number), [number]);
+
+  useEffect(() => {
+    renders.current = renders.current + 1;
+  });
+
+  function onClick() {
+    setInc((prevState: number) => {
+      console.log(prevState + 1);
+      return prevState + 1;
+    });
+  }
+
+  return (
+    <div>
+      <h3>UseMemo Example</h3>
+      <div className="">
+        <input
+          type="number"
+          value={number}
+          onChange={(e) => setNumber(e.target.valueAsNumber)}
+          className="form-control w-25"
+        />
+      </div>
+
+      <h3>
+        The Square root of {number} is {sqrt}
+      </h3>
+
+      <button type="button" onClick={onClick} className="btn btn-primary">
+        Re Render
+      </button>
+      <h4>Renders: {renders.current}</h4>
+    </div>
+  );
+}
+
+function getSqrt(num: number) {
+  for (let i = 0; i < 10000; i++) {
+    console.log(i);
+  }
+  console.log("Expensive Function Called");
+  return Math.sqrt(num);
+}
+
+export default useMemoExample;
+```
+
+---
+
+## useCallback
+
+The useCallback hook returns a memoized callback that only changes if one of the dependencies has changed. This helps us to avoid unwanted and unnecessary components re-renders.
+
+### useCallback Syntax
+
+```tsx
+import { useCallback } from "react";
+
+const memoizedCallback = useCallback(
+  // The first argument is a function to perform:
+  () => performOperation(arg1, arg2),
+
+  // The second argument is an array of dependencies
+  // needed to detect changes in function arguments:
+  [arg1, arg2]
+);
+```
+
+You don't need any additional typings since TypeScript knows that useCallback accepts a function and an array of dependencies.
+
+<a href="https://www.newline.co/@bespoyasov/how-to-use-usecallback-hook-with-typescript--f2019594">Blog for useCallback Hook in React & TypeScript </a>
